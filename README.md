@@ -15,6 +15,8 @@ rm -rf .git && git init
 claude   # または codex。AGENTS.md / CLAUDE.md が起動時に自動で読まれる
 ```
 
+Codex は指示ファイルの合計が既定 32 KiB を超えると、警告なしに末尾を切り捨てる。`AGENTS.md` は約 30 KB あるので、`~/.codex/config.toml` に `project_doc_max_bytes = 65536` を入れておく。
+
 最初に話しかけると、エージェントは「受け入れモード」で思いつきを聞き、`seed.md` に原文のまま記録した上で、動機を引き出す質問をしてくる。
 答え終わると第1ラウンドの議論が走り、`rounds/01/proposal.md` が返ってくる。
 

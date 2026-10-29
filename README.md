@@ -11,11 +11,11 @@
 ```bash
 git clone <this-template> my-new-theme
 cd my-new-theme
-rm -rf .git && git init
-claude   # または codex。AGENTS.md / CLAUDE.md が起動時に自動で読まれる
+rm -rf .git      # git は使わなくてよい。使うならここで git init し、エージェントに「git を使う」と言う
+claude           # または codex。AGENTS.md / CLAUDE.md が起動時に自動で読まれる
 ```
 
-Codex は指示ファイルの合計が既定 32 KiB を超えると、警告なしに末尾を切り捨てる。`AGENTS.md` は約 25 KB に収めてあるので、追記するときは `wc -c AGENTS.md` で上限を確認する。超えそうなら `~/.codex/config.toml` に `project_doc_max_bytes = 65536` を入れる。
+Codex は指示ファイルの合計が既定 32 KiB を超えると、警告なしに末尾を切り捨てる。`AGENTS.md` は約 29 KB なので、追記するときは `wc -c AGENTS.md` で上限を確認する。超えそうなら `~/.codex/config.toml` に `project_doc_max_bytes = 65536` を入れる。
 
 最初に話しかけると、エージェントは「受け入れモード」で思いつきを聞き、`seed.md` に原文のまま記録した上で、動機を引き出す質問をしてくる。
 答え終わると第1ラウンドの議論が走り、`rounds/01/proposal.md` が返ってくる。
@@ -43,7 +43,7 @@ Codex は指示ファイルの合計が既定 32 KiB を超えると、警告な
 | 自分が過去に下した判断と理由 | `rounds/NN/decision.md` |
 | これまでの判断の一覧（採用・却下・保留） | `theme.md` の「判断台帳」 |
 | finalize 前の査読結果 | `rounds/NN/review.md` |
-| 考えの変遷 | `git diff round-02 round-03 -- theme.md` |
+| 考えの変遷 | `diff rounds/02/theme.md rounds/03/theme.md`（決定確定ごとの theme.md の複製） |
 | 読んだ論文・データの確認状況 | `literature/notes.md` |
 | 別テーマになりそうな種 | `spinoffs.md` |
 | 最終成果物 | `PROPOSAL.md`（finalized 後） |
@@ -56,6 +56,7 @@ Codex は指示ファイルの合計が既定 32 KiB を超えると、警告な
 round: 3
 status: awaiting_decision   # 判断待ち
 last_decision: rounds/02/decision.md
+git: off                    # 既定。エージェントは git 操作をしない
 ```
 
 `awaiting_decision` のときは、エージェントは人の判断なしに次へ進まない。

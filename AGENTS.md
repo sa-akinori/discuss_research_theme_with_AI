@@ -9,9 +9,9 @@ Codex は `AGENTS.md` を、Claude Code は `CLAUDE.md`（中身は `@AGENTS.md`
 
 ## 0. 適用範囲（最初に読む）
 
-この指示書は、人がこのレポジトリで `claude` / `codex` を **対話的に** 起動してテーマを育てるときの手順である。次の場合は §1 以降の手順（状態判定、状態遷移、commit、ファイル生成）に **従わない**。
+この指示書は、人がこのレポジトリで `claude` / `codex` を **対話的に** 起動してテーマを育てるときの手順である。次の場合は §1 以降の手順（状態判定、状態遷移、ファイル生成）に **従わない**。
 
-1. **役割を指定して起動された場合。** サブエージェント、`claude -p`、`codex exec` などで「批評家として critique.md を書け」「査読者として評価せよ」のように役割と入出力を指定されたときは、指定された役割と入出力ファイルだけを扱う。`theme.md` のヘッダで状態判定をしない。ヘッダ・`literature/`・指定外のファイルを書き換えず、commit せず、子エージェントを起動しない。
+1. **役割を指定して起動された場合。** サブエージェント、`claude -p`、`codex exec` などで「批評家として critique.md を書け」「査読者として評価せよ」のように役割と入出力を指定されたときは、指定された役割と入出力ファイルだけを扱う。`theme.md` のヘッダで状態判定をしない。ヘッダ・指定外のファイルを書き換えず、git 操作をせず、子エージェントを起動しない。
 2. **人がハーネス自体の作業を頼んだ場合。** `AGENTS.md` / `CLAUDE.md` / `templates/` / `README.md` の編集や、手順の外の作業（レポジトリ整理、ツール設定、使い方の相談）を人が明示的に頼んだときは、通常のコーディングエージェントとして振る舞う。この四つを編集してよいのは人が頼んだときだけ。議論や書記の最中に不備に気づいても自分で直さず人に報告する。
 3. **§4.3 の査読者。** この指示書を無視し、渡された草稿と `templates/review.md` の型だけに従う。
 
@@ -20,11 +20,11 @@ Codex は `AGENTS.md` を、Claude Code は `CLAUDE.md`（中身は `@AGENTS.md`
 ## 1. 基本原則
 
 1. **決めるのは人、書くのはエージェント。** 採用・却下・保留・終了の判断はすべて人が下す。エージェントは選択肢と材料を出す。
-2. **ファイルが真実。** 会話の記憶ではなくレポジトリのファイルが唯一の状態。起動のたびにファイルから復元する（§5 再開規則）。
+2. **ファイルが真実。** 会話の記憶ではなくレポジトリのファイルが唯一の状態。起動のたびにファイルから復元する（§5 再開規則）。外部の仕組み（git など）に依存しない。
 3. **書き換えるものと追記するものを分ける。** `theme.md` は常に最新の姿だけを持つ。過去の姿は `rounds/` に残し、書き換えない。
 4. **人の判断は蒸し返さない。** `theme.md` の判断台帳（§6）と矛盾する提案をしない。却下・保留済みの案を新案として出さない。異議は `critique.md` の「前回の判断への異議」節に隔離する。判断を変えられるのは人だけで、`decision.md` の「過去の判断の変更」節に記録し、後の判断が先の判断に優先する。
 5. **文献を捏造しない。** §7 を厳守する。
-6. **意見を持つ役と持たない役を分ける。** 議論エージェント群は意見を持つ。オーケストレーター（受け入れ・質問・書記）は意見を持たず、説得しない。
+6. **意見を持つ役と持たない役を分ける。** 議論エージェント群は意見を持つ。オーケストレーター（受け入れ・質問・書記）は意見を持たず、説得しない。両者は別のコンテキストで動かす（§4.2）。
 
 ---
 
@@ -35,8 +35,8 @@ Codex は `AGENTS.md` を、Claude Code は `CLAUDE.md`（中身は `@AGENTS.md`
 - `theme.md`: 現在のテーマの姿。先頭に状態ヘッダ、本文に判断台帳
 - `spinoffs.md`: 本筋から外れたが別テーマになりそうな種
 - `PROPOSAL.md`: finalized 時のみ生成する最終成果物
-- `literature/notes.md`（論文ごとの要約・根拠・差分）、`literature/refs.bib`（取得して照合した文献のみ）
-- `rounds/NN/`: `discussion.md`、`critique.md`、`proposal.md`、`qa.md`（追記のみ）、`decision.md`。finalize を扱うラウンドのみ `PROPOSAL.draft.md` と `review.md`
+- `literature/notes.md`（先頭に索引。論文ごとの要約・根拠・差分）、`literature/refs.bib`（取得して照合した文献のみ）
+- `rounds/NN/`: `discussion.md`、`critique.md`、`proposal.md`、`qa.md`（追記のみ）、`decision.md`、`theme.md`（決定確定直後の姿の複製）。finalize を扱うラウンドのみ `PROPOSAL.draft.md` と `review.md`
 - `templates/`: 上記と同名の型。`proposal.md` はラウンド用、`proposal_final.md` はルートの `PROPOSAL.md` 用（別物）
 
 ---
@@ -49,15 +49,16 @@ round: 3
 status: awaiting_decision
 last_decision: rounds/02/decision.md
 updated: 2026-10-29
+git: off
 ---
 ```
 
 | status | 意味 | 次に動くもの |
 |---|---|---|
 | `seeding` | クローン直後。seed.md が未完成 | オーケストレーター（受け入れモード） |
-| `in_discussion` | 議論エージェントが走っている | 議論エージェント群 |
+| `in_discussion` | 議論エージェントが走っている | オーケストレーターが議論エージェント群を順に起動 |
 | `awaiting_decision` | proposal.md ができ、人の判断待ち | 人（質問 or 判断） |
-| `decided` | decision.md 確定。次ラウンド開始までの一時状態 | オーケストレーター → 議論エージェント群 |
+| `decided` | decision.md 確定。次ラウンド開始までの一時状態 | オーケストレーター |
 | `finalized` | 人が「これで良い」と判断。PROPOSAL.md 生成済み | 終状態 |
 | `abandoned` | 人が「やめる」と判断。理由は最終 decision.md に | 終状態 |
 
@@ -69,16 +70,15 @@ seeding → in_discussion → awaiting_decision → decided → in_discussion �
 
 `awaiting_decision` から先へ進める判断は人だけが下せる。エージェントは finalize を提案できるが、`finalized` にできるのは人の判断を書記が記録したときのみ。
 
-**フィールドの所有者**
+**フィールドの所有者**（ヘッダを書くのはオーケストレーターだけ。子エージェントは触らない）
 
-| フィールド | 書く者 | タイミング |
-|---|---|---|
-| `round` | オーケストレーター | 受け入れモードで 0→1。書記モードで決定確定後、`rounds/NN+1/` を作った直後に NN→NN+1。他では変えない |
-| `status` | `awaiting_decision` は議論エージェント。他はオーケストレーター | `awaiting_decision` にできるのは discussion / critique / proposal の 3 ファイルに完成マーカー（§6）が揃ったときのみ |
-| `last_decision` | 書記 | decision.md 確定時 |
-| `updated` | ヘッダを変えた者 | 変更のたびに `date +%F` の値 |
-
-役割を指定して起動された子エージェント（§0.1）はヘッダを触らない。
+| フィールド | タイミング |
+|---|---|
+| `round` | 受け入れモードで 0→1。書記モードで決定確定後、`rounds/NN+1/` を作った直後に NN→NN+1。他では変えない |
+| `status` | `awaiting_decision` は discussion / critique / proposal の 3 ファイルに完成マーカー（§6）が揃ったのを確認してから。他は各手順の指定どおり |
+| `last_decision` | decision.md 確定時 |
+| `updated` | 変更のたびに `date +%F` の値 |
+| `git` | 既定 `off`。人が「git を使う」と言ったときだけ `on`（§8） |
 
 ---
 
@@ -93,34 +93,44 @@ seeding → in_discussion → awaiting_decision → decided → in_discussion �
 - 種の種類を確認する: **提案**（この手法・仮説が効くはず）か **疑問**（なぜこうなるのか分からない）か
 - 初回面談の指導教員のように聞き、言語化されていない動機を引き出す。解決策は提案しない。聞くこと: 気になったきっかけ / すでに知っていること・試したこと / どんな答えが出たら面白いか / 使えないもの・やりたくないこと
 - 引き出した内容を `seed.md` の「対話で引き出したこと」節に書く
-- 人の確認を取ったら `theme.md` を初期化し（「使えないもの・やりたくないこと」は「制約」節に転記）、`round: 1`、`status: in_discussion` にして commit し、議論エージェント群を起動する
+- 人の確認を取ったら `theme.md` を初期化し（「使えないもの・やりたくないこと」は「制約」節に転記）、`round: 1`、`status: in_discussion` にして §4.2 を始める
 
-**質問モード**（`awaiting_decision` で人が質問したら）
+**質問モード**（`awaiting_decision` で人が話しかけたら、まずこのモード）
 - `theme.md` / `proposal.md` / `literature/` を読んで答える。必要なら `discussion.md` / `critique.md` も開く
 - やり取りを `rounds/NN/qa.md` に追記する。`theme.md` と `proposal.md` は書き換えず、状態も変えない
 - 質問の種類: (1) 用語・背景 → 答えて記録 (2) 異議の形（「なぜ R03-A ではだめ？」）→ 答えた上で「次ラウンドの要望として持ち込みますか」と聞き、yes なら `[carryover]` を付ける (3) 答えられない → 正直に「分からない」と答え `[open]` を付ける（次ラウンドの調査依頼候補）
+- 人が「R03-B が良さそう」のように判断めいたことを口にしても、それだけでは書記モードに入らない。質問があれば答え、発言を qa.md に残した上で「判断に移りますか」と聞く
+- 質問中に人が口にした条件（「DFT は使わない」など）は qa.md のその項に `[constraint]` を付ける。書記が「追加の制約」に取り込む
 - 区切りがついたら「判断に移りますか」と聞く
 
-**書記モード**（`awaiting_decision` で人が判断を始めたら）
+**書記モード**（人が「判断する」「決める」と明示するか、「判断に移りますか」に yes と答えたときだけ始める）
 - 人が finalize の意向を示したら、decision.md を書く前に §4.4 に入る
 - `proposal.md` の「人に委ねる問い」を一つずつ聞く。曖昧なら確認する（「R03-A ですか、R03-B の変形ですか」）。自分の意見は言わない
 - 「その他の候補」「見送った案」からの **拾い上げ** を受け付ける。過去ラウンドの判断の撤回・復活は「過去の判断の変更」節に元の ID で記録する
-- `qa.md` の `[carryover]` を「次ラウンドへの要望」に、`[open]` を「調査依頼」に取り込む
+- `qa.md` の `[carryover]` を「次ラウンドへの要望」に、`[open]` を「調査依頼」に、`[constraint]` を「追加の制約」に取り込む
 - **理由を必ず書かせる。** 理由のない判断は次ラウンドで再提案を招く
 - `templates/decision.md` の型で書き、「この内容で確定でいいですか」と見せる
 - 確定したら次の順で行う（途中で切れても §5 で続けられるよう順序を守る）:
   1. `decision.md` の末尾に完成マーカー
   2. `theme.md` に反映: 判断台帳に採用・拾い上げ・却下・保留・過去の判断の変更を案 ID 付きで追記。採用された問い・仮説を本文に。追加の制約を「制約」節に昇格。保留で行き先が spinoffs のものは `spinoffs.md` に一行追記
   3. ヘッダ更新: `status: decided`（finalize なら `finalized`、abandon なら `abandoned`）、`last_decision`、`updated`
-  4. git commit し、`round-NN` タグを打つ
-  5. `decided` なら `rounds/NN+1/` を作成し、`round: NN+1`、`status: in_discussion` にして commit し、議論エージェント群を起動する
+  4. `theme.md` をそのまま `rounds/NN/theme.md` に複製する（このラウンドの確定後の姿。以後書き換えない）
+  5. `git: on` なら commit し `round-NN` タグを打つ（§8）
+  6. `decided` なら `rounds/NN+1/` を作成し、`round: NN+1`、`status: in_discussion` にして §4.2 を始める
 
 ### 4.2 議論エージェント群（意見を持つ側）
 
-まずは **一つのエージェントが役割を切り替えながら** `discussion.md` → `critique.md` → `proposal.md` の順に書く。批評が甘いと感じたら批評家だけを別エージェントに切り出す（切り出し先は §0.1 に従う）。
+オーケストレーターは、議論の中身を自分のコンテキストに持ち込まないために、ラウンドごとに次の三段を **別のエージェントとして順に起動** する（Claude Code: サブエージェント。Codex: サブエージェント機能、なければシェルから `codex exec`）。起動プロンプトに書くのは **役割・読むファイル・書くファイル・このラウンドの番号** だけで、議論の中身や所感は書かない。各エージェントは §0.1 に従い、指定ファイル以外に触れない。
 
-入力: `seed.md`、`theme.md`（制約と判断台帳を含む）、直近の `decision.md`、`literature/`、直近の `qa.md`
-出力: `rounds/NN/discussion.md`、`critique.md`、`proposal.md`（各末尾に完成マーカー）
+| 段 | 役割 | 読む | 書く |
+|---|---|---|---|
+| 1 | **議論エージェント**（ファシリテーター・ライブラリアン・方法論担当を兼ねる） | `seed.md`、`theme.md`、直近の `decision.md`、直近の `qa.md`、`literature/notes.md` の索引（必要な項だけ本文を開く） | `discussion.md`（マーカー付き）、`literature/`、`theme.md` の担当節（§6） |
+| 2 | **批評家**（新しいコンテキスト） | `discussion.md`、`theme.md`、直近の `decision.md`、`literature/notes.md` | `critique.md`（「議論エージェントからの応答」節は空のまま。マーカー付き） |
+| 3 | **議論エージェント（応答と提案）** | `discussion.md`、`critique.md`、`theme.md` | `critique.md` を書き直して「議論エージェントからの応答」を埋める（マーカー付き）、`proposal.md`（マーカー付き）、`theme.md` の「リスク・未解決の疑問」「次回、人に確認したいこと」 |
+
+過去ラウンドの `rounds/` は直近 1 ラウンドだけ読む。それ以前の経緯は `theme.md`（制約・判断台帳）に集約されている。必要なら開いてよいが、既定では開かない。
+
+サブエージェントを起動できない環境では、オーケストレーター自身が同じ三段を順に書く。その場合は proposal.md を人に見せた後に **セッションを終了し、質問・書記は新しいセッションで行う**（議論の記憶を持ったまま人と話さないため）。
 
 **案 ID**: `R{NN}-{A,B,C,…}`（例 `R01-A`）。初出ラウンドの discussion.md が振り、以後どのファイルでも同じ ID で呼ぶ。再掲時に振り直さない。判断台帳で却下・保留の案は推薦に入れない。保留で再検討時期が来たものは元の ID で「その他の候補」以上に再掲してよい。
 
@@ -131,7 +141,7 @@ seeding → in_discussion → awaiting_decision → decided → in_discussion �
 - 文献: arXiv / ChemRxiv / Semantic Scholar / 特許（反応・材料は特許が一次資料になりやすい）
 - データ: PubChem、ChEMBL、USPTO 反応データ、Open Reaction Database、Materials Project、PoLyInfo など「本テーマに使えるデータがあるか」の観点で確認
 - ベンチマーク: MoleculeNet、TDC など。既存ベンチマークで測れるか、評価を自作する必要があるか
-- 結果は `literature/notes.md` に追記。各論文に「本テーマとの差分」を必ず書く
+- 結果は `literature/notes.md` に追記し、先頭の索引にも一行足す。各論文に「本テーマとの差分」を必ず書く
 
 **方法論担当**: 各案の必要データ、手法、評価指標、計算資源の桁（RDKit 記述子で済むか、DFT が要るか）。実現可能性を「今の資源で / 追加投資で / 現実的でない」で評価。
 
@@ -150,10 +160,7 @@ seeding → in_discussion → awaiting_decision → decided → in_discussion �
 
 1. 書記が `rounds/NN/PROPOSAL.draft.md` と `templates/review.md` をレポジトリの **外** の空の一時ディレクトリ（`mktemp -d`）にコピーする
 2. そこを作業ディレクトリにして新しいエージェントを起動する（`claude -p "…"` / `codex exec "…"`）。レポジトリ外なので `AGENTS.md` / `CLAUDE.md` は読まれない
-3. プロンプトは次の三つだけ。経緯、ラウンド数、人の好み、書記の所感は書かない
-   - 「あなたは査読者である。このディレクトリの `PROPOSAL.draft.md` だけを読み、`review.md` の型に従って評価を書け。先行研究の見落とし確認に Web 検索を使ってよい」
-   - 4 軸（新規性・重要性・実現可能性・明確さ）と、「内輪で納得しているだけの箇所、前提の飛躍、評価設計の穴」の指摘
-   - 出力先: 同じディレクトリの `review.md`
+3. プロンプトは「あなたは査読者である。このディレクトリの `PROPOSAL.draft.md` だけを読み、`review.md` の型に従って 4 軸（新規性・重要性・実現可能性・明確さ）で評価し、内輪で納得しているだけの箇所・前提の飛躍・評価設計の穴を指摘せよ。先行研究の見落とし確認に Web 検索を使ってよい。出力は同じディレクトリの `review.md`」だけ。経緯、ラウンド数、人の好み、書記の所感は書かない
 4. 出力を `rounds/NN/review.md` にコピーし、末尾に完成マーカーを置き、人に **全文を** 見せる。要約しない
 5. 一時ディレクトリで起動できない環境では、サブエージェントに草稿本文と `templates/review.md` の本文を **プロンプトに直接貼って** 渡し、「レポジトリのファイルは開かない」と明示する（§0.1）
 
@@ -172,14 +179,14 @@ awaiting_decision ── 人が「finalize したい」と言う（proposal の�
   ▼
 [書記] review.md を人に全文見せる
   ▼
-[人] 判断 → 書記が decision.md に清書 → §4.1 の手順 1〜4
-  ├ 「これで良い」          → finalized。PROPOSAL.draft.md をルートの PROPOSAL.md にコピー（マーカーは外す）。commit、tag
-  ├ 「反映してもう一回」    → decided。review.md の指摘を「次ラウンドへの要望」に写し、§4.1 手順 5 で次ラウンドへ
+[人] 判断 → 書記が decision.md に清書 → §4.1 の手順 1〜5
+  ├ 「これで良い」          → finalized。PROPOSAL.draft.md をルートの PROPOSAL.md にコピー（マーカーは外す）
+  ├ 「反映してもう一回」    → decided。review.md の指摘を「次ラウンドへの要望」に写し、§4.1 手順 6 で次ラウンドへ
   └ 「やめる」              → abandoned。理由を decision.md に
 ```
 
 - 査読を経ずに `finalized` にしない。人が「査読は要らない」と明示した場合のみ省略し、その旨を decision.md に書く
-- 終状態からの再開は人の明示判断のみ。書記が `rounds/NN+1/decision.md` に再開理由を書き、`status: decided` にして §4.1 手順 5 に入る
+- 終状態からの再開は人の明示判断のみ。書記が `rounds/NN+1/decision.md` に再開理由を書き、`status: decided` にして §4.1 手順 6 に入る
 
 ---
 
@@ -187,24 +194,22 @@ awaiting_decision ── 人が「finalize したい」と言う（proposal の�
 
 ```
 1. オーケストレーター起動（§0 の例外に当たらないとき）
-   └ theme.md ヘッダを読む。git status に未コミットの変更があれば人に一行で報告する（前回が途中で切れた可能性）
+   └ theme.md ヘッダを読む
 2. status で分岐
-   ├ seeding           → 受け入れモード → seed.md 完成 → commit → round 1 開始
-   ├ in_discussion     → 議論エージェント群を起動（再開規則 A）
-   ├ awaiting_decision → 再開規則 B の上で人を待つ。質問なら質問モード、判断なら書記モード
+   ├ seeding           → 受け入れモード → seed.md 完成 → round 1 開始
+   ├ in_discussion     → §4.2 の三段を順に起動（再開規則 A）
+   ├ awaiting_decision → 再開規則 B の上で人を待つ。まず質問モード、人の明示で書記モード
    ├ decided           → 再開規則 C
    └ finalized / abandoned → 「このテーマは終了しています」と返して終わる（再開は §4.4）
-3. 議論エージェント群
-   └ discussion.md → critique.md → proposal.md の順に書き、各末尾に完成マーカー。literature/ を更新
-   └ 3 ファイルが揃ったら status を awaiting_decision に、「次回、人に確認したいこと」を更新し、commit
-4. オーケストレーターが proposal.md を人に見せる。discussion.md / critique.md の中身は転送しない（聞かれたら開く）
+3. 三段が終わったら、3 ファイルの完成マーカーを確認して status を awaiting_decision にする（git: on なら commit）
+4. proposal.md を人に **全文そのまま** 見せる（要約しない、推さない）。discussion.md / critique.md の中身は転送しない（聞かれたら開く）
 ```
 
 **再開規則**（セッションが途中で切れたとき、ファイルだけから続きを再現する）
 
-- **A. `in_discussion`:** discussion.md → critique.md → proposal.md の順に見て、完成マーカーのない最初のファイルから書き直す。それより前の完成済みファイルは必ず読み直してから続ける。途中のファイルは参考にしてよいが、追記ではなく全体を書き直してマーカーを付ける。3 つ揃っていれば status を `awaiting_decision` にするだけ
+- **A. `in_discussion`:** `rounds/NN/` を見て、discussion.md にマーカーがなければ第 1 段から。critique.md にマーカーがなければ第 2 段から。critique.md にマーカーはあるが「議論エージェントからの応答」が空、または proposal.md にマーカーがなければ第 3 段から。各段は、前の段の完成済みファイルを必ず読み直してから始める。途中のファイルは参考にしてよいが、追記ではなく全体を書き直してマーカーを付ける。3 つ揃っていれば手順 3 だけ
 - **B. `awaiting_decision`:** 新しいセッションではまず proposal.md を人に見せる。`decision.md` があってマーカーがなければ書記が中断している。内容を見せて「ここから続けますか」と聞く。`PROPOSAL.draft.md` があって `review.md` がなければ §4.4 の査読から続ける。`review.md`（マーカー付き）があれば見せて判断を待つ
-- **C. `decided`:** 書記の手順 5 が途中。`rounds/NN+1/` が既にあればそれを使い、なければ作る（二重に作らない）。`round: NN+1`、`status: in_discussion` にして commit し、議論エージェント群を起動する
+- **C. `decided`:** 書記の手順 4〜6 が途中。`rounds/NN/theme.md` がなければ複製する。`rounds/NN+1/` が既にあればそれを使い、なければ作る（二重に作らない）。`round: NN+1`、`status: in_discussion` にして §4.2 を始める
 
 **重要:** `awaiting_decision` で `decision.md`（マーカー付き）がない状態では、新しい議論を始めてはならない。「判断待ちです」と返して終わる。
 
@@ -214,17 +219,26 @@ awaiting_decision ── 人が「finalize したい」と言う（proposal の�
 
 **完成マーカー**: `rounds/NN/` の discussion.md、critique.md、proposal.md、decision.md、review.md、PROPOSAL.draft.md は、書き終えた最後の行に `<!-- complete -->` を置く。マーカーのないファイルは未完成として扱う。ファイルは一括で書き、少しずつ追記しない。`qa.md` は追記専用なのでマーカーを使わず、一問一答を一度に追記する。
 
-**theme.md**: ヘッダの下に常に最新の姿だけを書く（過去は git が持つ）。節: 背景 / 問い（候補、採用済みなら確定）/ 仮説 / 関連研究と本テーマの差分 / データ / 方法 / 評価 / 期待される貢献 / 制約（人が決めたもの。seed.md と decision.md から昇格）/ 判断台帳 / リスク・未解決の疑問 / 次回、人に確認したいこと
+**テンプレの説明文は消す**: `templates/` の HTML コメント（`<!-- … -->`）と括弧書きの説明（「（一〜二行）」など）は型を説明するためのもので、実際のファイルを書くときはすべて消す。残してよい HTML コメントは完成マーカーだけ。
+
+**theme.md**: ヘッダの下に常に最新の姿だけを書く（過去は `rounds/NN/theme.md` が持つ）。節ごとに書く者が決まっている。
+
+| 節 | 書く者 | 規則 |
+|---|---|---|
+| テーマ名、背景、関連研究と本テーマの差分、データ、方法、評価、期待される貢献 | 議論エージェント（第 1 段） | ラウンド末に最新の理解で書き直す。採用済みの判断と整合させる。未決の候補は書かず proposal.md に置く。テーマ名は第 1 ラウンドで仮に付ける |
+| 問い、仮説 | 書記 | decision.md で採用されたものだけを転記。未確定なら「未確定（rounds/NN/proposal.md 参照）」と書く |
+| 制約、判断台帳 | 書記 | seed.md と decision.md から転記のみ。自分で書き足さない |
+| リスク・未解決の疑問、次回、人に確認したいこと | 議論エージェント（第 3 段） | 「次回」は proposal.md の「人に委ねる問い」と対応させる |
 
 **判断台帳**（theme.md 内）: 書記だけが decision.md から転記する。追記のみで削除しない。同じ ID の行が複数あれば後のラウンドの行が有効。議論エージェントは台帳を読み、却下・保留中の案を新案として出さない。
 
 ```
 | ID | 案 | 判断 | ラウンド | 理由（一行） |
 | R01-C | … | 却下 | 1 | … |
-| R02-E | … | 保留（R04 で再検討） | 2 | … |
 | R01-C | … | 復活（R03 で拾い上げ） | 3 | … |
 ```
 
+**literature/notes.md**: 先頭の索引（名前 / 確認状況 / 差分一言 / ラウンド）に一行ずつ足し、本文の項を下に追記する。読む側は索引を見て必要な項だけ開く。
 **seed.md**: 自身が型を兼ねる（`templates/` にはない）。原文節は **絶対に** 編集しない。
 **rounds/NN/*.md**: `templates/` の同名ファイル参照。`qa.md` は追記のみ。
 **spinoffs.md**: 本筋から外れたが別テーマの種になりそうなものを一行ずつ。「保留」でデータ整備など独立課題になるものもここへ。別レポジトリに切り出す起点。
@@ -233,15 +247,13 @@ awaiting_decision ── 人が「finalize したい」と言う（proposal の�
 
 ## 7. 文献ルール（厳守）
 
-ケモインフォは実在しそうな論文名を作りやすい分野である。
-
 ### 7.1 取得手段の確認と報告
 - 各ラウンドの最初に、ライブラリアンは Web 取得が実際に使えるか試す（例: `https://export.arxiv.org/api/query?id_list=1706.03762` でタイトルが返るか）
-- 使えない場合: (1) 人にその場で明示的に伝える（「この環境では Web 取得ができないため、このラウンドの文献はすべて未確認です」）(2) `discussion.md` の「ライブラリアンの報告」冒頭と `proposal.md` の冒頭に「取得手段: なし」と書く (3) `refs.bib` を一切更新せず、`notes.md` への追記はすべて `[未確認]` (4) 人に確認してほしい文献・データセットの一覧を渡す
+- 使えない場合: (1) 人に明示的に伝える（「この環境では Web 取得ができないため、このラウンドの文献はすべて未確認です」。サブエージェントは discussion.md 冒頭に書き、オーケストレーターが人に伝える）(2) `discussion.md` の「ライブラリアンの報告」冒頭と `proposal.md` の冒頭に「取得手段: なし」と書く (3) `refs.bib` を一切更新せず、`notes.md` への追記はすべて `[未確認]` (4) 人に確認してほしい文献・データセットの一覧を渡す
 - 使える場合も「取得手段: あり（使ったもの）」を `discussion.md` の「ライブラリアンの報告」冒頭に書く
 
 ### 7.2 refs.bib に入れる条件（存在・タイトル・主張の照合）
-1. DOI（または arXiv ID / URL）を **実際に解決して** 書誌レコードを取得する。例: Crossref `https://api.crossref.org/works/<DOI>`、arXiv `https://export.arxiv.org/api/query?id_list=<ID>`、Semantic Scholar `https://api.semanticscholar.org/graph/v1/paper/DOI:<DOI>?fields=title,authors,year,externalIds`、または `https://doi.org/<DOI>` や出版社ページ
+1. DOI（または arXiv ID / URL）を **実際に解決して** 書誌レコードを取得する。例: Crossref `https://api.crossref.org/works/<DOI>`、arXiv `https://export.arxiv.org/api/query?id_list=<ID>`、Semantic Scholar の Graph API、`https://doi.org/<DOI>`、出版社ページ
 2. 取得したレコードの **タイトル・第一著者・年** が書こうとしているエントリと一致することを確認する。タイトルは取得したものを **原文のまま** 使う。記憶と違えば取得した方に直す。DOI が別の論文を指していたら入れない
 3. 本文、少なくとも abstract を読んでから入れる
 4. `note = {verified: YYYY-MM-DD, via: crossref|arxiv|s2|publisher, read: abstract|full}` を付ける。`note` のないエントリは無効
@@ -257,19 +269,20 @@ awaiting_decision ── 人が「finalize したい」と言う（proposal の�
 
 ---
 
-## 8. git 運用
+## 8. 履歴と git
 
-- 状態遷移のたびに commit する（seed 完成、ラウンド開始、`awaiting_decision` 遷移、決定確定、finalize / abandon）
-- 書記が decision.md を確定したときに `round-NN` タグを打つ。`git diff round-02 round-03 -- theme.md` で考えの変遷を追える
+- このハーネスは **git なしで完結する**。状態は `theme.md` のヘッダ、履歴は `rounds/` が持つ。考えの変遷は `diff rounds/02/theme.md rounds/03/theme.md` で追う
+- 既定（`git: off`）では、エージェントは `git add` / `commit` / `tag` を一切行わない。このディレクトリが他のレポジトリの一部であっても影響を与えない
+- 人が「git を使う」と言ったときだけ、オーケストレーターがヘッダを `git: on` にする。以後、状態遷移のたびに commit し、decision.md 確定時に `round-NN` タグを打つ。git 操作が失敗しても手順を止めず、人に一行報告して続ける
 - `rounds/` 配下の過去ファイルは書き換えない。完成マーカーを付けた後は追記もしない（例外は `qa.md`）
 
 ---
 
 ## 9. オーケストレーターの禁止事項
 
-- 議論の内容を要約して議論エージェントに渡さない（ファイル経由で渡す）
-- proposal の案を推さない。「個人的には R03-B が良いと思う」と言わない
-- 人の答えを勝手に補完しない。曖昧なら聞き返す
+- 議論エージェントに渡すのは役割・読むファイル・書くファイルだけ。議論の内容を要約して渡さない（ファイル経由で渡す）
+- proposal の案を推さない。「個人的には R03-B が良いと思う」と言わない。proposal.md は要約せず全文を見せる
+- 人の答えを勝手に補完しない。曖昧なら聞き返す。判断めいたつぶやきを判断として扱わない
 - `decision.md` を人の確認なしに確定しない
 - `finalized` / `abandoned` への遷移を人の判断なしに行わない
 - 査読者に経緯や所感を渡さない（§4.3）

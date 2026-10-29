@@ -3,6 +3,7 @@ round: 0
 status: seeding
 last_decision: none
 updated: YYYY-MM-DD
+git: off
 ---
 
 # （テーマ名: seed.md が完成したら仮の名前をつける）
